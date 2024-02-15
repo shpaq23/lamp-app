@@ -1,5 +1,14 @@
 import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
-import { LightPoint, LightService, SquareInfo } from './light-service';
+import { LightPoint, LightService } from './light-service';
+
+// Define a type for square information
+export interface SquareInfo {
+	selected: boolean;
+	lastToggled: number;
+	xCanvas: number;
+	yCanvas: number;
+	sizeCanvas: number;
+}
 
 @Component({
 	selector: 'app-square-canvas',
@@ -25,9 +34,12 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 	squareSize: number = 20; // Changed square size to 20 pixels
 
-	grid: SquareInfo[][] = Array(50).fill(null).map(() => Array(50).fill(null).map(() => ({
+	grid: SquareInfo[][] = Array(50).fill(null).map((_, xIndex) => Array(50).fill(null).map((_, yIndex) => ({
 		selected: false,
-		lastToggled: 0
+		lastToggled: 0,
+		xCanvas: xIndex * this.squareSize, // Obliczanie pozycji x na canvasie
+		yCanvas: yIndex * this.squareSize, // Obliczanie pozycji y na canvasie
+		sizeCanvas: this.squareSize // Rozmiar kwadratu na canvasie
 	})));
 
 	isMouseDown: boolean = false; // Track if the mouse button is held down
@@ -43,7 +55,6 @@ export class SquareCanvasComponent implements AfterViewInit {
 	constructor(
 		private readonly lightService: LightService
 	) {
-
 	}
 
 
@@ -61,6 +72,7 @@ export class SquareCanvasComponent implements AfterViewInit {
 		this.drawGrid();
 		this.drawLightPoints(lightPoints, this.lightValue);
 	}
+
 
 	drawLightPoints(lightPoints: LightPoint[], lightValue: number): void {
 		const ctx = this.myCanvas.nativeElement.getContext('2d');
@@ -107,25 +119,21 @@ export class SquareCanvasComponent implements AfterViewInit {
 		const ctx = this.myCanvas.nativeElement.getContext('2d');
 		if (!ctx) return;
 
-		const padding = 2; // Adjust the padding size as needed
-		const paddedSize = this.squareSize - padding * 2; // Calculate the size for the filled square after applying padding
-
-		ctx.clearRect(0, 0, 1000, 1000); // Clear the canvas before redrawing
+		ctx.clearRect(0, 0, 1000, 1000); // Czyszczenie canvasa
 
 		for (let x = 0; x < this.grid.length; x++) {
 			for (let y = 0; y < this.grid[0].length; y++) {
 				const square = this.grid[x][y];
-				const topLeftX = x * this.squareSize;
-				const topLeftY = y * this.squareSize;
+				const { xCanvas, yCanvas, sizeCanvas } = square; // Destructuring dla czytelności
 
-				// Always draw the border for both selected and unselected squares
 				ctx.strokeStyle = 'black';
-				ctx.strokeRect(topLeftX, topLeftY, this.squareSize, this.squareSize);
+				ctx.strokeRect(xCanvas, yCanvas, sizeCanvas, sizeCanvas);
 
 				if (square.selected) {
-					// Then draw the smaller filled square inside for selected squares
+					const padding = 2;
+					const paddedSize = sizeCanvas - padding * 2;
 					ctx.fillStyle = 'lightgrey';
-					ctx.fillRect(topLeftX + padding, topLeftY + padding, paddedSize, paddedSize);
+					ctx.fillRect(xCanvas + padding, yCanvas + padding, paddedSize, paddedSize);
 				}
 			}
 		}

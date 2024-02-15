@@ -1,14 +1,9 @@
 import { Injectable } from '@angular/core';
+import { SquareInfo } from './square-canvas.component';
 
 export interface LightPoint {
 	x: number;
 	y: number;
-}
-
-// Define a type for square information
-export interface SquareInfo {
-	selected: boolean;
-	lastToggled: number;
 }
 
 
