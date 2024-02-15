@@ -68,8 +68,9 @@ export class SquareCanvasComponent implements AfterViewInit {
 	}
 
 	calculate(): void {
-		const lightPoints = this.lightService.calculate(this.grid, this.lightValue, this.squareSize);
+		const lightPoints = this.lightService.calculate(this.grid, this.lightValue);
 		this.drawGrid();
+		console.log(lightPoints);
 		this.drawLightPoints(lightPoints, this.lightValue);
 	}
 
@@ -78,12 +79,12 @@ export class SquareCanvasComponent implements AfterViewInit {
 		const ctx = this.myCanvas.nativeElement.getContext('2d');
 		if (!ctx) return;
 
-		// Skalowanie promienia światła do pikseli na canvasie, lightValue jest traktowane jako promień
-		const radiusInPixels = lightValue * this.squareSize;
+		// Przeliczanie promienia światła z metrów na piksele, zakładając że 1m = 20px
+		const radiusInPixels = lightValue * 20; // Promień światła w pikselach
 
 		lightPoints.forEach(point => {
-			const centerX = point.x * this.squareSize + this.squareSize / 2; // Centrowanie punktu światła
-			const centerY = point.y * this.squareSize + this.squareSize / 2; // Centrowanie punktu światła
+			const centerX = point.x; // Współrzędna x punktu światła jest już w pikselach
+			const centerY = point.y; // Współrzędna y punktu światła jest już w pikselach
 
 			ctx.beginPath();
 			ctx.arc(centerX, centerY, radiusInPixels, 0, Math.PI * 2);
@@ -95,6 +96,7 @@ export class SquareCanvasComponent implements AfterViewInit {
 			ctx.stroke(); // Rysowanie obramowania
 		});
 	}
+
 
 
 	colorInitialArea(): void {
