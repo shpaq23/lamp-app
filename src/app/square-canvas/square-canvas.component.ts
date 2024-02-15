@@ -128,6 +128,15 @@ export class SquareCanvasComponent implements AfterViewInit {
 				if (cell.selected) {
 					if (!this.isSquarePartialLighted(cell, lampPoints, lampLightInfo)) {
 						lampPoints.push({ xCanvas: cell.xCanvas, yCanvas: cell.yCanvas });
+					} else {
+						if (this.isSquareFullyLighted(cell, lampPoints, lampLightInfo)) {
+						} else {
+							const firstFreeX = this.findFirstFreeX(cell, lampPoints, lampLightInfo) - 1;
+							const firstFreeY = this.findFirstFreeY(cell, lampPoints, lampLightInfo) - 1;
+							if (firstFreeX !== -1 && firstFreeY !== -1) {
+								lampPoints.push({ xCanvas: firstFreeX, yCanvas: firstFreeY });
+							}
+						}
 					}
 				}
 			});
@@ -137,8 +146,41 @@ export class SquareCanvasComponent implements AfterViewInit {
 		return lampPoints;
 	}
 
-	isSquareFullyLighted(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
+	findFirstFreeY(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): number {
+		for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
+			for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
+				if (!this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+					return y;
+				}
+			}
+		}
+		return -1;
+	}
 
+	findFirstFreeX(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): number {
+		for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
+			for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
+				if (!this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+					return x;
+				}
+			}
+		}
+		return -1;
+	}
+
+
+	isSquareFullyLighted(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
+		if (lampPoints.length === 0) {
+			return false;
+		}
+		for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
+			for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
+				if (!this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	isSquarePartialLighted(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
@@ -164,13 +206,13 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 		for (const lampPoint of lampPoints) {
 			if (lampInfo.lampPosition === 'horizontal') {
-				if (x > lampPoint.xCanvas && x < lampPoint.xCanvas + lampLightHeightPx &&
-					y > lampPoint.yCanvas && y < lampPoint.yCanvas + lampLightWidthPx) {
+				if (x >= lampPoint.xCanvas && x <= lampPoint.xCanvas + lampLightHeightPx &&
+					y >= lampPoint.yCanvas && y <= lampPoint.yCanvas + lampLightWidthPx) {
 					return true;
 				}
 			} else {
-				if (x > lampPoint.xCanvas && x < lampPoint.xCanvas + lampLightWidthPx &&
-					y > lampPoint.yCanvas && y < lampPoint.yCanvas + lampLightHeightPx) {
+				if (x >= lampPoint.xCanvas && x <= lampPoint.xCanvas + lampLightWidthPx &&
+					y >= lampPoint.yCanvas && y <= lampPoint.yCanvas + lampLightHeightPx) {
 					return true;
 				}
 			}
