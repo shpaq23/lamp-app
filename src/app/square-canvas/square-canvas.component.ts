@@ -25,6 +25,7 @@ export interface LampPoint {
 @Component({
 	selector: 'app-square-canvas',
 	template: `
+		<button (click)="calculate()">Calculate</button>
 		<div>
 			Initial Area Width: <input (change)="updateInitialArea()" [(ngModel)]="initialWidth" type="number">
 			Initial Area Height: <input (change)="updateInitialArea()" [(ngModel)]="initialHeight" type="number">
@@ -38,7 +39,7 @@ export interface LampPoint {
 		</select>
 
 		</div>
-		<button (click)="calculate()">Calculate</button>
+		
 		<canvas #myCanvas
 				(mousedown)="onMouseDown($event)"
 				(mouseleave)="onMouseUp($event)"
@@ -108,54 +109,75 @@ export class SquareCanvasComponent implements AfterViewInit {
 	}
 
 
+	// calculateLampPosition(grid: SquareInfo[][], lampLightInfo: LampLightInfo): LampPoint[] {
+	// 	// 1. sprawdz ktore kwadraty w siatce sa zaznaczone, kazdy kwadrat odpowiada 1m2
+	// 	// 2. dla kazdego kwadratu sprawdz czy caly obszar jest w zasiegu lampy. z dokladnoscia do 1px. kazdy kwadrat to 20px x 20px
+	// // 3. sprawdz to za pomoca iterowania po kazdym pixelu w kwadracie i patrzeniu czy jest zaznaczony
+	// 	// 4. jesli nie jest to dodaj lampe w lewym gornym rogu kwadratu
+
+	// }
+
 	calculateLampPosition(grid: SquareInfo[][], lampLightInfo: LampLightInfo): LampPoint[] {
 		const lampPoints: LampPoint[] = [];
+		const meterToPixels = 20; // 1 meter = 20 pixels
+		const lampLightWidthPx = lampLightInfo.lampLightWidthInM * meterToPixels;
+		const lampLightHeightPx = lampLightInfo.lampLightHeightInM * meterToPixels;
 
-		// Przeliczanie wymiarów światła z metrów na piksele
-		const lightWidthPx = lampLightInfo.lampLightWidthInM * this.squareSize;
-		const lightHeightPx = lampLightInfo.lampLightHeightInM * this.squareSize;
-
-		// Znalezienie zakresu zaznaczonych kwadratów
-		let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 		grid.forEach((row, x) => {
 			row.forEach((cell, y) => {
 				if (cell.selected) {
-					minX = Math.min(minX, x);
-					maxX = Math.max(maxX, x);
-					minY = Math.min(minY, y);
-					maxY = Math.max(maxY, y);
+					if (!this.isSquarePartialLighted(cell, lampPoints, lampLightInfo)) {
+						lampPoints.push({ xCanvas: cell.xCanvas, yCanvas: cell.yCanvas });
+					}
 				}
 			});
 		});
 
-		// Ustalenie kierunku rozprzestrzeniania się światła
-		const isHorizontal = lampLightInfo.lampPosition === 'horizontal';
-
-		// Dostosowanie kroków iteracji w zależności od orientacji światła lampy
-		const stepX = isHorizontal ? 1 : Math.ceil(lightWidthPx / this.squareSize);
-		const stepY = isHorizontal ? Math.ceil(lightHeightPx / this.squareSize) : 1;
-
-		for (let x = minX; x <= maxX; x += stepX) {
-			for (let y = minY; y <= maxY; y += stepY) {
-				if (grid[x][y].selected) {
-					// Sprawdzenie, czy obszar nie jest już pokryty przez światło innej lampy
-					const isAlreadyCovered = lampPoints.some(lampPoint => {
-						const distX = Math.abs(lampPoint.xCanvas / this.squareSize - x);
-						const distY = Math.abs(lampPoint.yCanvas / this.squareSize - y);
-						return (isHorizontal && distX * this.squareSize < lightWidthPx) || (!isHorizontal && distY * this.squareSize < lightHeightPx);
-					});
-
-					if (!isAlreadyCovered) {
-						const lampX = x * this.squareSize;
-						const lampY = y * this.squareSize;
-						lampPoints.push({ xCanvas: lampX, yCanvas: lampY });
-					}
-				}
-			}
-		}
 
 		return lampPoints;
 	}
+
+	isSquareFullyLighted(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
+
+	}
+
+	isSquarePartialLighted(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
+		console.log('isSquarePartialLighted', cell);
+		if (lampPoints.length === 0) {
+			return false;
+		}
+		for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
+			for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
+				if (this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+					return true;
+				}
+			}
+		}
+		return false;
+
+	}
+
+	private isPointInLamp(x: number, y: number, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
+		const meterToPixels = 20; // 1 meter = 20 pixels
+		const lampLightWidthPx = lampInfo.lampLightWidthInM * meterToPixels;
+		const lampLightHeightPx = lampInfo.lampLightHeightInM * meterToPixels;
+
+		for (const lampPoint of lampPoints) {
+			if (lampInfo.lampPosition === 'horizontal') {
+				if (x > lampPoint.xCanvas && x < lampPoint.xCanvas + lampLightHeightPx &&
+					y > lampPoint.yCanvas && y < lampPoint.yCanvas + lampLightWidthPx) {
+					return true;
+				}
+			} else {
+				if (x > lampPoint.xCanvas && x < lampPoint.xCanvas + lampLightWidthPx &&
+					y > lampPoint.yCanvas && y < lampPoint.yCanvas + lampLightHeightPx) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 
 
 	drawLamps(lampPoints: LampPoint[], lampInfo: LampLightInfo): void {
