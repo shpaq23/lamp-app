@@ -1,5 +1,4 @@
 import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
-import { LightPoint, LightService } from './light-service';
 
 // Define a type for square information
 export interface SquareInfo {
@@ -10,13 +9,33 @@ export interface SquareInfo {
 	sizeCanvas: number;
 }
 
+export interface LampLightInfo {
+	lampWidthInM: number;
+	lampHeightInM: number;
+	lampLightHeightInM: number;
+	lampLightWidthInM: number;
+	lampPosition: 'horizontal' | 'vertical';
+}
+
+export interface LampPoint {
+	xCanvas: number;
+	yCanvas: number;
+}
+
 @Component({
 	selector: 'app-square-canvas',
 	template: `
 		<div>
 			Initial Area Width: <input (change)="updateInitialArea()" [(ngModel)]="initialWidth" type="number">
 			Initial Area Height: <input (change)="updateInitialArea()" [(ngModel)]="initialHeight" type="number">
-			Light Value in m2: <input type="number" [(ngModel)]="lightValue">
+			Lamp Width in M: <input [(ngModel)]="lampWidthInM" type="number">
+			Lamp Height in M: <input [(ngModel)]="lampHeightInM" type="number">
+			Lamp Light Width in M: <input [(ngModel)]="lampLightWidthInM" type="number">
+			Lamp Light Height in M: <input [(ngModel)]="lampLightHeightInM" type="number">
+			Lamp Position: <select [(ngModel)]="lampPosition">
+			<option value="horizontal">Horizontal</option>
+			<option value="vertical">Vertical</option>
+		</select>
 
 		</div>
 		<button (click)="calculate()">Calculate</button>
@@ -42,6 +61,7 @@ export class SquareCanvasComponent implements AfterViewInit {
 		sizeCanvas: this.squareSize // Rozmiar kwadratu na canvasie
 	})));
 
+
 	isMouseDown: boolean = false; // Track if the mouse button is held down
 
 	debouncePeriod: number = 500; // Adjust as needed
@@ -50,12 +70,18 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 
 	initialWidth: number = 10; // Default initial width
+
 	initialHeight: number = 10; // Default initial height
 
-	constructor(
-		private readonly lightService: LightService
-	) {
-	}
+	lampWidthInM: number = 0.1; // Default lamp width
+
+	lampHeightInM: number = 1; // Default lamp height
+
+	lampLightWidthInM: number = 1.0; // Default lamp light width
+
+	lampLightHeightInM: number = 1.5; // Default lamp light height
+
+	lampPosition: 'horizontal' | 'vertical' = 'vertical'; // Default lamp position
 
 
 	ngAfterViewInit(): void {
@@ -68,35 +94,123 @@ export class SquareCanvasComponent implements AfterViewInit {
 	}
 
 	calculate(): void {
-		const lightPoints = this.lightService.calculate(this.grid, this.lightValue);
+		const lampInfo = {
+			lampWidthInM: this.lampWidthInM,
+			lampHeightInM: this.lampHeightInM,
+			lampLightHeightInM: this.lampLightHeightInM,
+			lampLightWidthInM: this.lampLightWidthInM,
+			lampPosition: this.lampPosition
+		};
+		const lampPoints = this.calculateLampPosition(this.grid, lampInfo);
 		this.drawGrid();
-		console.log(lightPoints);
-		this.drawLightPoints(lightPoints, this.lightValue);
+		console.log(lampPoints);
+		this.drawLamps(lampPoints, lampInfo);
 	}
 
 
-	drawLightPoints(lightPoints: LightPoint[], lightValue: number): void {
+	calculateLampPosition(grid: SquareInfo[][], lampLightInfo: LampLightInfo): LampPoint[] {
+		const lampPoints: LampPoint[] = [];
+
+		// Przeliczanie wymiarów światła z metrów na piksele
+		const lightWidthPx = lampLightInfo.lampLightWidthInM * this.squareSize;
+		const lightHeightPx = lampLightInfo.lampLightHeightInM * this.squareSize;
+
+		// Znalezienie zakresu zaznaczonych kwadratów
+		let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+		grid.forEach((row, x) => {
+			row.forEach((cell, y) => {
+				if (cell.selected) {
+					minX = Math.min(minX, x);
+					maxX = Math.max(maxX, x);
+					minY = Math.min(minY, y);
+					maxY = Math.max(maxY, y);
+				}
+			});
+		});
+
+		// Ustalenie kierunku rozprzestrzeniania się światła
+		const isHorizontal = lampLightInfo.lampPosition === 'horizontal';
+
+		// Dostosowanie kroków iteracji w zależności od orientacji światła lampy
+		const stepX = isHorizontal ? 1 : Math.ceil(lightWidthPx / this.squareSize);
+		const stepY = isHorizontal ? Math.ceil(lightHeightPx / this.squareSize) : 1;
+
+		for (let x = minX; x <= maxX; x += stepX) {
+			for (let y = minY; y <= maxY; y += stepY) {
+				if (grid[x][y].selected) {
+					// Sprawdzenie, czy obszar nie jest już pokryty przez światło innej lampy
+					const isAlreadyCovered = lampPoints.some(lampPoint => {
+						const distX = Math.abs(lampPoint.xCanvas / this.squareSize - x);
+						const distY = Math.abs(lampPoint.yCanvas / this.squareSize - y);
+						return (isHorizontal && distX * this.squareSize < lightWidthPx) || (!isHorizontal && distY * this.squareSize < lightHeightPx);
+					});
+
+					if (!isAlreadyCovered) {
+						const lampX = x * this.squareSize;
+						const lampY = y * this.squareSize;
+						lampPoints.push({ xCanvas: lampX, yCanvas: lampY });
+					}
+				}
+			}
+		}
+
+		return lampPoints;
+	}
+
+
+	drawLamps(lampPoints: LampPoint[], lampInfo: LampLightInfo): void {
+		// Pobieranie kontekstu 2D z elementu canvas
 		const ctx = this.myCanvas.nativeElement.getContext('2d');
-		if (!ctx) return;
+		if (!ctx) {
+			return;
+		}
 
-		// Przeliczanie promienia światła z metrów na piksele, zakładając że 1m = 20px
-		const radiusInPixels = lightValue * 20; // Promień światła w pikselach
+		// Ustawienia dla rysowania obszaru świetlnego
+		const lightAreaColor = 'rgba(255, 255, 0, 0.5)'; // Kolor obszaru świetlnego z przezroczystością
+		ctx.strokeStyle = 'orange'; // Kolor obramowania obszaru świetlnego
+		ctx.lineWidth = 1; // Grubość linii obramowania
 
-		lightPoints.forEach(point => {
-			const centerX = point.x; // Współrzędna x punktu światła jest już w pikselach
-			const centerY = point.y; // Współrzędna y punktu światła jest już w pikselach
+		// Przeliczanie wymiarów lampy z metrów na piksele
+		const lampWidthPx = lampInfo.lampWidthInM * this.squareSize;
+		const lampHeightPx = lampInfo.lampHeightInM * this.squareSize;
 
+		lampPoints.forEach(lampPoint => {
+			// Rysowanie obszaru świetlnego w zależności od orientacji lampy
+			ctx.fillStyle = lightAreaColor;
+			let lightWidthPx, lightHeightPx;
+			if (lampInfo.lampPosition === 'horizontal') {
+				lightWidthPx = lampInfo.lampLightHeightInM * this.squareSize;
+				lightHeightPx = lampInfo.lampLightWidthInM * this.squareSize;
+			} else {
+				lightWidthPx = lampInfo.lampLightWidthInM * this.squareSize;
+				lightHeightPx = lampInfo.lampLightHeightInM * this.squareSize;
+			}
 			ctx.beginPath();
-			ctx.arc(centerX, centerY, radiusInPixels, 0, Math.PI * 2);
-			ctx.fillStyle = 'rgba(255, 255, 0, 0.5)'; // Ustawienie koloru i przezroczystości światła
+			ctx.rect(lampPoint.xCanvas, lampPoint.yCanvas, lightWidthPx, lightHeightPx);
 			ctx.fill();
+			ctx.stroke();
 
-			ctx.strokeStyle = 'black'; // Ustawienie koloru obramowania
-			ctx.lineWidth = 1; // Ustawienie grubości linii obramowania
-			ctx.stroke(); // Rysowanie obramowania
+			// Rysowanie czarnego paska reprezentującego lampę
+			ctx.fillStyle = 'black';
+			let barX, barY, barWidth, barHeight;
+			if (lampInfo.lampPosition === 'horizontal') {
+				// Poziomy pasek
+				barWidth = lampInfo.lampHeightInM * this.squareSize;
+				barHeight = lampInfo.lampWidthInM * this.squareSize;
+				barX = lampPoint.xCanvas + (lightWidthPx - barWidth) / 2;
+				barY = lampPoint.yCanvas + (lightHeightPx - barHeight) / 2;
+			} else { // 'vertical'
+				// Pionowy pasek
+				barWidth = lampInfo.lampWidthInM * this.squareSize;
+				barHeight = lampInfo.lampHeightInM * this.squareSize;
+				barX = lampPoint.xCanvas + (lightWidthPx - barWidth) / 2;
+				barY = lampPoint.yCanvas + (lightHeightPx - barHeight) / 2;
+			}
+			ctx.beginPath();
+			ctx.rect(barX, barY, barWidth, barHeight);
+			ctx.fill();
 		});
 	}
-
 
 
 	colorInitialArea(): void {

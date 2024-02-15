@@ -1,18 +1,5 @@
 import { Injectable } from '@angular/core';
-import { SquareInfo } from './square-canvas.component';
-
-export interface LightPoint {
-	x: number;
-	y: number;
-}
-
-// export interface SquareInfo {
-// 	selected: boolean;
-// 	lastToggled: number;
-// 	xCanvas: number;
-// 	yCanvas: number;
-// 	sizeCanvas: number;
-// }
+import { LampLightInfo, LampPoint, SquareInfo } from './square-canvas.component';
 
 @Injectable({
 	providedIn: 'root'
@@ -20,36 +7,41 @@ export interface LightPoint {
 export class LightService {
 
 
-	calculate(grid: SquareInfo[][], lightRadius: number): LightPoint[] {
-		const lightPoints: LightPoint[] = [];
-
-		// Przeliczanie promienia światła z metrów na piksele, uwzględniając rozmiar kwadratu na kanwie.
-		// Zakładamy, że 1m = 20px, więc lightRadius * 20 daje nam promień w pikselach.
-		const coverageRadiusPx = lightRadius * 20; // Promień oświetlenia w pikselach
-
+	calculate(grid: SquareInfo[][], lampLightInfo: LampLightInfo): LampPoint[] {
+		const lampPoints: LampPoint[] = [];
 		const gridWidth = grid.length;
 		const gridHeight = grid[0].length;
 
-		for (let x = 0; x < gridWidth; x++) {
-			for (let y = 0; y < gridHeight; y++) {
-				const square = grid[x][y];
-				if (square.selected && !this.isLit(square.xCanvas + square.sizeCanvas / 2, square.yCanvas + square.sizeCanvas / 2, lightPoints, coverageRadiusPx)) {
-					// Umieszczamy punkt światła w centrum zaznaczonego kwadratu na kanwie.
-					lightPoints.push({ x: square.xCanvas + square.sizeCanvas / 2, y: square.yCanvas + square.sizeCanvas / 2 });
+		// Zakładamy, że jednostki lampLightWidthInM i lampLightHeightInM są już dostosowane do siatki
+		const lampLightWidth = Math.ceil(lampLightInfo.lampLightWidthInM);
+		const lampLightHeight = Math.ceil(lampLightInfo.lampLightHeightInM);
+
+		// Obliczanie kroku rozmieszczenia lamp w zależności od ich orientacji
+		let stepX = lampLightInfo.lampPosition === 'horizontal' ? lampLightWidth : 1;
+		let stepY = lampLightInfo.lampPosition === 'vertical' ? lampLightHeight : 1;
+
+		for (let x = 0; x < gridWidth; x += stepX) {
+			for (let y = 0; y < gridHeight; y += stepY) {
+				let isAreaSelected = false;
+
+				// Sprawdzanie, czy jakikolwiek kwadrat w obszarze lampy jest zaznaczony
+				for (let lx = 0; lx < stepX && x + lx < gridWidth; lx++) {
+					for (let ly = 0; ly < stepY && y + ly < gridHeight; ly++) {
+						if (grid[x + lx][y + ly].selected) {
+							isAreaSelected = true;
+							break;
+						}
+					}
+					if (isAreaSelected) break;
+				}
+
+				if (isAreaSelected) {
+					lampPoints.push({ xCanvas: x * 20, yCanvas: y * 20 }); // Założenie, że rozmiar kwadratu to 20
 				}
 			}
 		}
 
-		return lightPoints;
-	}
-
-	private isLit(x: number, y: number, lightPoints: LightPoint[], coverageRadiusPx: number): boolean {
-		return lightPoints.some(point => {
-			const dx = point.x - x;
-			const dy = point.y - y;
-			const distance = Math.sqrt(dx * dx + dy * dy);
-			return distance <= coverageRadiusPx;
-		});
+		return lampPoints;
 	}
 
 }
