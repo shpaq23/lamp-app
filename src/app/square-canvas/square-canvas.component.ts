@@ -17,7 +17,7 @@ export interface LampLightInfo {
 	lampPosition: 'horizontal' | 'vertical';
 }
 
-export interface LampPoint {
+export interface Point {
 	xCanvas: number;
 	yCanvas: number;
 }
@@ -29,17 +29,19 @@ export interface LampPoint {
 		<div>
 			Initial Area Width: <input (change)="updateInitialArea()" [(ngModel)]="initialWidth" type="number">
 			Initial Area Height: <input (change)="updateInitialArea()" [(ngModel)]="initialHeight" type="number">
-			Lamp Width in M: <input [(ngModel)]="lampWidthInM" type="number">
-			Lamp Height in M: <input [(ngModel)]="lampHeightInM" type="number">
+			Lamp Frame Width in M: <input [(ngModel)]="lampWidthInM" type="number">
+			Lamp Frame Height in M: <input [(ngModel)]="lampHeightInM" type="number">
 			Lamp Light Width in M: <input [(ngModel)]="lampLightWidthInM" type="number">
 			Lamp Light Height in M: <input [(ngModel)]="lampLightHeightInM" type="number">
-			Lamp Position: <select [(ngModel)]="lampPosition">
-			<option value="horizontal">Horizontal</option>
-			<option value="vertical">Vertical</option>
-		</select>
+			Lamp Position:
+			<select [(ngModel)]="lampPosition">
+				<option value="horizontal">Horizontal</option>
+				<option value="vertical">Vertical</option>
+			</select>
+			With moving lamp algorithm: <input type="checkbox" [(ngModel)]="withMovingLampAlgorithm">
 
 		</div>
-		
+
 		<canvas #myCanvas
 				(mousedown)="onMouseDown($event)"
 				(mouseleave)="onMouseUp($event)"
@@ -84,6 +86,8 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 	lampPosition: 'horizontal' | 'vertical' = 'vertical'; // Default lamp position
 
+	withMovingLampAlgorithm: boolean = false;
+
 
 	ngAfterViewInit(): void {
 		this.drawGrid();
@@ -117,24 +121,26 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 	// }
 
-	calculateLampPosition(grid: SquareInfo[][], lampLightInfo: LampLightInfo): LampPoint[] {
-		const lampPoints: LampPoint[] = [];
-		const meterToPixels = 20; // 1 meter = 20 pixels
-		const lampLightWidthPx = lampLightInfo.lampLightWidthInM * meterToPixels;
-		const lampLightHeightPx = lampLightInfo.lampLightHeightInM * meterToPixels;
+	calculateLampPosition(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Point[] {
+		const lightPoints: Point[] = [];
+		const lampPoints: Point[] = [];
 
 		grid.forEach((row, x) => {
 			row.forEach((cell, y) => {
 				if (cell.selected) {
-					if (!this.isSquarePartialLighted(cell, lampPoints, lampLightInfo)) {
-						lampPoints.push({ xCanvas: cell.xCanvas, yCanvas: cell.yCanvas });
+					if (!this.isSquarePartialLighted(cell, lightPoints, lampLightInfo)) {
+						const lightPoint = { xCanvas: cell.xCanvas, yCanvas: cell.yCanvas };
+						lightPoints.push(lightPoint);
+						lampPoints.push(this.calculateLampPoint(lightPoint));
 					} else {
-						if (this.isSquareFullyLighted(cell, lampPoints, lampLightInfo)) {
+						if (this.isSquareFullyLighted(cell, lightPoints, lampLightInfo)) {
 						} else {
-							const firstFreeX = this.findFirstFreeX(cell, lampPoints, lampLightInfo) - 1;
-							const firstFreeY = this.findFirstFreeY(cell, lampPoints, lampLightInfo) - 1;
+							const firstFreeX = this.findFirstFreeX(cell, lightPoints, lampLightInfo) - 1;
+							const firstFreeY = this.findFirstFreeY(cell, lightPoints, lampLightInfo) - 1;
 							if (firstFreeX !== -1 && firstFreeY !== -1) {
-								lampPoints.push({ xCanvas: firstFreeX, yCanvas: firstFreeY });
+								const lightPoint = { xCanvas: firstFreeX, yCanvas: firstFreeY };
+								lightPoints.push(lightPoint);
+								lampPoints.push(this.calculateLampPoint(lightPoint));
 							}
 						}
 					}
@@ -142,14 +148,138 @@ export class SquareCanvasComponent implements AfterViewInit {
 			});
 		});
 
+		if (this.withMovingLampAlgorithm) {
+			lampPoints.forEach((lampPoint, index) => {
+				if (this.isLampFullyInSquares(lampPoint, lampLightInfo, grid)) {
+					console.log('lampPoint - fit', lampPoint);
+				} else {
+					console.log('lampPoint - does not fit', lampPoint);
+					const lightPointOffset = this.calculateLightPointOffsetInPx(lampPoint, lampLightInfo, grid);
+					const lightPointToMove = lightPoints[index];
+					if (lightPointOffset > 0) {
+						if (lampLightInfo.lampPosition === 'horizontal') {
+							lightPointToMove.xCanvas -= lightPointOffset;
+						} else {
+							lightPointToMove.yCanvas -= lightPointOffset;
+						}
+					}
+					console.log('lightPointOffset', lightPointOffset);
 
-		return lampPoints;
+				}
+			});
+		}
+
+
+		return lightPoints;
 	}
 
-	findFirstFreeY(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): number {
+
+	calculateLightPointOffsetInPx(lampPoint: Point, lampInfo: LampLightInfo, grid: SquareInfo[][]): number {
+		const selectedSquares = grid.reduce((acc, row) => {
+			return acc.concat(row.filter(cell => cell.selected));
+		}, []);
+
+		let offset = 0;
+		const squareThatLapsInAndIsBigger = selectedSquares.find(cell => {
+			if (lampInfo.lampPosition === 'horizontal') {
+				const leftTopCorner = { xCanvas: lampPoint.xCanvas, yCanvas: lampPoint.yCanvas };
+				const rightTopCorner = { xCanvas: lampPoint.xCanvas + lampInfo.lampWidthInM * 20, yCanvas: lampPoint.yCanvas };
+				const leftBottomCorner = { xCanvas: lampPoint.xCanvas, yCanvas: lampPoint.yCanvas + lampInfo.lampHeightInM * 20 };
+				const rightBottomCorner = { xCanvas: lampPoint.xCanvas + lampInfo.lampWidthInM * 20, yCanvas: lampPoint.yCanvas + lampInfo.lampHeightInM * 20 };
+
+				return (leftTopCorner.xCanvas >= cell.xCanvas && leftTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+					leftTopCorner.yCanvas >= cell.yCanvas && leftTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+					(rightTopCorner.xCanvas >= cell.xCanvas && rightTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+						rightTopCorner.yCanvas >= cell.yCanvas && rightTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+					(leftBottomCorner.xCanvas >= cell.xCanvas && leftBottomCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+						leftBottomCorner.yCanvas >= cell.yCanvas && leftBottomCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+					(rightBottomCorner.xCanvas >= cell.xCanvas && rightBottomCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+						rightBottomCorner.yCanvas >= cell.yCanvas && rightBottomCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas);
+			} else {
+				const leftTopCorner = { xCanvas: lampPoint.xCanvas, yCanvas: lampPoint.yCanvas };
+				const rightTopCorner = { xCanvas: lampPoint.xCanvas + lampInfo.lampHeightInM * 20, yCanvas: lampPoint.yCanvas };
+				const leftBottomCorner = { xCanvas: lampPoint.xCanvas, yCanvas: lampPoint.yCanvas + lampInfo.lampWidthInM * 20 };
+				const rightBottomCorner = { xCanvas: lampPoint.xCanvas + lampInfo.lampHeightInM * 20, yCanvas: lampPoint.yCanvas + lampInfo.lampWidthInM * 20 };
+
+				return (leftTopCorner.xCanvas >= cell.xCanvas && leftTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+					leftTopCorner.yCanvas >= cell.yCanvas && leftTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+					(rightTopCorner.xCanvas >= cell.xCanvas && rightTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+						rightTopCorner.yCanvas >= cell.yCanvas && rightTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+					(leftBottomCorner.xCanvas >= cell.xCanvas && leftBottomCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+						leftBottomCorner.yCanvas >= cell.yCanvas && leftBottomCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+					(rightBottomCorner.xCanvas >= cell.xCanvas && rightBottomCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
+						rightBottomCorner.yCanvas >= cell.yCanvas && rightBottomCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas);
+			}
+		});
+		if (squareThatLapsInAndIsBigger) {
+			console.log('squareThatLapsInAndIsBigger', squareThatLapsInAndIsBigger);
+			if (lampInfo.lampPosition === 'horizontal') {
+				offset = (lampPoint.xCanvas + lampInfo.lampHeightInM * 20) - (squareThatLapsInAndIsBigger.xCanvas + squareThatLapsInAndIsBigger.sizeCanvas)
+			} else {
+				offset = (lampPoint.yCanvas + lampInfo.lampHeightInM * 20) - (squareThatLapsInAndIsBigger.yCanvas + squareThatLapsInAndIsBigger.sizeCanvas)
+			}
+		}
+		return offset;
+
+	}
+
+	isLampFullyInSquares(lampPoint: Point, lampInfo: LampLightInfo, grid: SquareInfo[][]): boolean {
+		const meterToPixels = 20; // 1 meter = 20 pixels
+		const lampLightWidthPx = lampInfo.lampPosition === 'vertical'
+			? lampInfo.lampWidthInM * meterToPixels
+			: lampInfo.lampHeightInM * meterToPixels;
+		const lampLightHeightPx = lampInfo.lampPosition === 'vertical' ?
+			lampInfo.lampHeightInM * meterToPixels
+			: lampInfo.lampWidthInM * meterToPixels;
+
+
+		for (let x = lampPoint.xCanvas; x < lampPoint.xCanvas + lampLightWidthPx; x++) {
+			for (let y = lampPoint.yCanvas; y < lampPoint.yCanvas + lampLightHeightPx; y++) {
+				if (!this.isPointInSquare(x, y, grid, lampInfo)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	isPointInSquare(x: number, y: number, grid: SquareInfo[][], lampInfo: LampLightInfo): boolean {
+
+		const selectedSquares = grid.reduce((acc, row) => {
+			return acc.concat(row.filter(cell => cell.selected));
+		}, []);
+
+		for (const cell of selectedSquares) {
+			if (lampInfo.lampPosition === 'horizontal') {
+				if (x >= cell.xCanvas && x <= cell.xCanvas + cell.sizeCanvas &&
+					y >= cell.yCanvas && y <= cell.yCanvas + cell.sizeCanvas) {
+					return true;
+				}
+			} else {
+				if (x >= cell.xCanvas && x <= cell.xCanvas + cell.sizeCanvas &&
+					y >= cell.yCanvas && y <= cell.yCanvas + cell.sizeCanvas) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	calculateLampPoint(lightPoint: Point): Point {
+		const meterToPixels = 20; // 1 meter = 20 pixels
+		const lampLightWidthPx = this.lampLightWidthInM * meterToPixels;
+		const lampLightHeightPx = this.lampLightHeightInM * meterToPixels;
+		return {
+			xCanvas: lightPoint.xCanvas + (lampLightWidthPx - this.lampWidthInM * meterToPixels) / 2,
+			yCanvas: lightPoint.yCanvas + (lampLightHeightPx - this.lampHeightInM * meterToPixels) / 2
+		};
+
+	}
+
+	findFirstFreeY(cell: SquareInfo, lightPoints: Point[], lampInfo: LampLightInfo): number {
 		for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
 			for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
-				if (!this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+				if (!this.isPointInLamp(x, y, lightPoints, lampInfo)) {
 					return y;
 				}
 			}
@@ -157,10 +287,10 @@ export class SquareCanvasComponent implements AfterViewInit {
 		return -1;
 	}
 
-	findFirstFreeX(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): number {
+	findFirstFreeX(cell: SquareInfo, lightPoints: Point[], lampInfo: LampLightInfo): number {
 		for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
 			for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
-				if (!this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+				if (!this.isPointInLamp(x, y, lightPoints, lampInfo)) {
 					return x;
 				}
 			}
@@ -169,13 +299,13 @@ export class SquareCanvasComponent implements AfterViewInit {
 	}
 
 
-	isSquareFullyLighted(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
-		if (lampPoints.length === 0) {
+	isSquareFullyLighted(cell: SquareInfo, lightPoints: Point[], lampInfo: LampLightInfo): boolean {
+		if (lightPoints.length === 0) {
 			return false;
 		}
 		for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
 			for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
-				if (!this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+				if (!this.isPointInLamp(x, y, lightPoints, lampInfo)) {
 					return false;
 				}
 			}
@@ -183,14 +313,13 @@ export class SquareCanvasComponent implements AfterViewInit {
 		return true;
 	}
 
-	isSquarePartialLighted(cell: SquareInfo, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
-		console.log('isSquarePartialLighted', cell);
-		if (lampPoints.length === 0) {
+	isSquarePartialLighted(cell: SquareInfo, lightPoints: Point[], lampInfo: LampLightInfo): boolean {
+		if (lightPoints.length === 0) {
 			return false;
 		}
 		for (let x = cell.xCanvas; x < cell.xCanvas + cell.sizeCanvas; x++) {
 			for (let y = cell.yCanvas; y < cell.yCanvas + cell.sizeCanvas; y++) {
-				if (this.isPointInLamp(x, y, lampPoints, lampInfo)) {
+				if (this.isPointInLamp(x, y, lightPoints, lampInfo)) {
 					return true;
 				}
 			}
@@ -199,12 +328,12 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 	}
 
-	private isPointInLamp(x: number, y: number, lampPoints: LampPoint[], lampInfo: LampLightInfo): boolean {
+	private isPointInLamp(x: number, y: number, lightPoints: Point[], lampInfo: LampLightInfo): boolean {
 		const meterToPixels = 20; // 1 meter = 20 pixels
 		const lampLightWidthPx = lampInfo.lampLightWidthInM * meterToPixels;
 		const lampLightHeightPx = lampInfo.lampLightHeightInM * meterToPixels;
 
-		for (const lampPoint of lampPoints) {
+		for (const lampPoint of lightPoints) {
 			if (lampInfo.lampPosition === 'horizontal') {
 				if (x >= lampPoint.xCanvas && x <= lampPoint.xCanvas + lampLightHeightPx &&
 					y >= lampPoint.yCanvas && y <= lampPoint.yCanvas + lampLightWidthPx) {
@@ -221,8 +350,7 @@ export class SquareCanvasComponent implements AfterViewInit {
 	}
 
 
-
-	drawLamps(lampPoints: LampPoint[], lampInfo: LampLightInfo): void {
+	drawLamps(lampPoints: Point[], lampInfo: LampLightInfo): void {
 		// Pobieranie kontekstu 2D z elementu canvas
 		const ctx = this.myCanvas.nativeElement.getContext('2d');
 		if (!ctx) {

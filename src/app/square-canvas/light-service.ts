@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { LampLightInfo, LampPoint, SquareInfo } from './square-canvas.component';
+import { LampLightInfo, Point, SquareInfo } from './square-canvas.component';
 
 @Injectable({
 	providedIn: 'root'
@@ -7,8 +7,8 @@ import { LampLightInfo, LampPoint, SquareInfo } from './square-canvas.component'
 export class LightService {
 
 
-	calculate(grid: SquareInfo[][], lampLightInfo: LampLightInfo): LampPoint[] {
-		const lampPoints: LampPoint[] = [];
+	calculate(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Point[] {
+		const lampPoints: Point[] = [];
 		const gridWidth = grid.length;
 		const gridHeight = grid[0].length;
 
