@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
+import { LightService } from './light-service';
 
 // Define a type for square information
 export interface SquareInfo {
@@ -21,6 +22,12 @@ export interface Point {
 	xCanvas: number;
 	yCanvas: number;
 }
+
+export interface Lamp {
+	lightLeftTopPoint: Point;
+	frameLeftTopPoint: Point;
+}
+
 
 @Component({
 	selector: 'app-square-canvas',
@@ -88,6 +95,8 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 	withMovingLampAlgorithm: boolean = false;
 
+	private readonly lightService = new LightService();
+
 
 	ngAfterViewInit(): void {
 		this.drawGrid();
@@ -106,10 +115,12 @@ export class SquareCanvasComponent implements AfterViewInit {
 			lampLightWidthInM: this.lampLightWidthInM,
 			lampPosition: this.lampPosition
 		};
-		const lampPoints = this.calculateLampPosition(this.grid, lampInfo);
 		this.drawGrid();
-		console.log(lampPoints);
-		this.drawLamps(lampPoints, lampInfo);
+		// const lampPoints = this.calculateLampPosition(this.grid, lampInfo);
+		// console.log(lampPoints);
+		// this.drawLamps(lampPoints, lampInfo);
+		this.lightService.drawLight(this.grid, lampInfo, this.myCanvas.nativeElement.getContext('2d'));
+
 	}
 
 
