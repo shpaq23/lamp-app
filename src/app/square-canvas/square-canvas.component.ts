@@ -33,6 +33,8 @@ export interface Lamp {
 	selector: 'app-square-canvas',
 	template: `
 		<button (click)="calculate()">Calculate</button>
+		<button (click)="step1()">Step 1</button>
+		<button (click)="step2()">Step 2</button>
 		<div>
 			Initial Area Width: <input (change)="updateInitialArea()" [(ngModel)]="initialWidth" type="number">
 			Initial Area Height: <input (change)="updateInitialArea()" [(ngModel)]="initialHeight" type="number">
@@ -119,8 +121,33 @@ export class SquareCanvasComponent implements AfterViewInit {
 		// const lampPoints = this.calculateLampPosition(this.grid, lampInfo);
 		// console.log(lampPoints);
 		// this.drawLamps(lampPoints, lampInfo);
-		this.lightService.drawLight(this.grid, lampInfo, this.myCanvas.nativeElement.getContext('2d'));
+		// this.lightService.drawLight(this.grid, lampInfo, this.myCanvas.nativeElement.getContext('2d'));
+	}
 
+	step1(): void {
+		const lampInfo = {
+			lampWidthInM: this.lampWidthInM,
+			lampHeightInM: this.lampHeightInM,
+			lampLightHeightInM: this.lampLightHeightInM,
+			lampLightWidthInM: this.lampLightWidthInM,
+			lampPosition: this.lampPosition
+		};
+		this.drawGrid();
+		const lamps = this.lightService.step1(this.grid, lampInfo);
+		this.lightService.drawLight(lamps, lampInfo, 20, this.myCanvas.nativeElement.getContext('2d'));
+	}
+
+	step2(): void {
+		const lampInfo = {
+			lampWidthInM: this.lampWidthInM,
+			lampHeightInM: this.lampHeightInM,
+			lampLightHeightInM: this.lampLightHeightInM,
+			lampLightWidthInM: this.lampLightWidthInM,
+			lampPosition: this.lampPosition
+		};
+		this.drawGrid();
+		const lamps = this.lightService.step2(this.grid, lampInfo);
+		this.lightService.drawLight(lamps, lampInfo, 20, this.myCanvas.nativeElement.getContext('2d'));
 	}
 
 
@@ -199,7 +226,7 @@ export class SquareCanvasComponent implements AfterViewInit {
 				const rightBottomCorner = { xCanvas: lampPoint.xCanvas + lampInfo.lampWidthInM * 20, yCanvas: lampPoint.yCanvas + lampInfo.lampHeightInM * 20 };
 
 				return (leftTopCorner.xCanvas >= cell.xCanvas && leftTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
-					leftTopCorner.yCanvas >= cell.yCanvas && leftTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+						leftTopCorner.yCanvas >= cell.yCanvas && leftTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
 					(rightTopCorner.xCanvas >= cell.xCanvas && rightTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
 						rightTopCorner.yCanvas >= cell.yCanvas && rightTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
 					(leftBottomCorner.xCanvas >= cell.xCanvas && leftBottomCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
@@ -213,7 +240,7 @@ export class SquareCanvasComponent implements AfterViewInit {
 				const rightBottomCorner = { xCanvas: lampPoint.xCanvas + lampInfo.lampHeightInM * 20, yCanvas: lampPoint.yCanvas + lampInfo.lampWidthInM * 20 };
 
 				return (leftTopCorner.xCanvas >= cell.xCanvas && leftTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
-					leftTopCorner.yCanvas >= cell.yCanvas && leftTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
+						leftTopCorner.yCanvas >= cell.yCanvas && leftTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
 					(rightTopCorner.xCanvas >= cell.xCanvas && rightTopCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
 						rightTopCorner.yCanvas >= cell.yCanvas && rightTopCorner.yCanvas <= cell.yCanvas + cell.sizeCanvas) ||
 					(leftBottomCorner.xCanvas >= cell.xCanvas && leftBottomCorner.xCanvas <= cell.xCanvas + cell.sizeCanvas &&
@@ -225,9 +252,9 @@ export class SquareCanvasComponent implements AfterViewInit {
 		if (squareThatLapsInAndIsBigger) {
 			console.log('squareThatLapsInAndIsBigger', squareThatLapsInAndIsBigger);
 			if (lampInfo.lampPosition === 'horizontal') {
-				offset = (lampPoint.xCanvas + lampInfo.lampHeightInM * 20) - (squareThatLapsInAndIsBigger.xCanvas + squareThatLapsInAndIsBigger.sizeCanvas)
+				offset = (lampPoint.xCanvas + lampInfo.lampHeightInM * 20) - (squareThatLapsInAndIsBigger.xCanvas + squareThatLapsInAndIsBigger.sizeCanvas);
 			} else {
-				offset = (lampPoint.yCanvas + lampInfo.lampHeightInM * 20) - (squareThatLapsInAndIsBigger.yCanvas + squareThatLapsInAndIsBigger.sizeCanvas)
+				offset = (lampPoint.yCanvas + lampInfo.lampHeightInM * 20) - (squareThatLapsInAndIsBigger.yCanvas + squareThatLapsInAndIsBigger.sizeCanvas);
 			}
 		}
 		return offset;

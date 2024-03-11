@@ -7,17 +7,59 @@ import { Lamp, LampLightInfo, Point, SquareInfo } from './square-canvas.componen
 export class LightService {
 
 
-	drawLight(grid: SquareInfo[][], lampLightInfo: LampLightInfo, canvas: CanvasRenderingContext2D | undefined): void {
+	step1(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Lamp[] {
+		const meterToPixel = grid[0][0].sizeCanvas;
+		const { buildingAreaLeftTop, buildingAreaRightBottom } = this.getAreaCorners(grid);
+		return this.calculateLampPoints(lampLightInfo, buildingAreaLeftTop, buildingAreaRightBottom, meterToPixel);
+	}
+
+	step2(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Lamp[] {
+		const lamps = this.step1(grid, lampLightInfo);
+		const meterToPixel = grid[0][0].sizeCanvas;
+		const { buildingAreaLeftTop, buildingAreaRightBottom } = this.getAreaCorners(grid);
+		const buildingAreaDiagonalCrossPoint = this.getDiagonalCrossPoint(buildingAreaLeftTop, buildingAreaRightBottom);
+		console.log('areaDiagonalCrossPoint', buildingAreaDiagonalCrossPoint);
+
+		const { lightAreaLeftTop, lightAreaRightBottom } = this.getLampCorners(lamps, lampLightInfo, meterToPixel);
+		const lightAreaDiagonalCrossPoint = this.getDiagonalCrossPoint(lightAreaLeftTop, lightAreaRightBottom);
+		console.log('lightAreaDiagonalCrossPoint', lightAreaDiagonalCrossPoint);
+
+		const xDiff = buildingAreaDiagonalCrossPoint.xCanvas - lightAreaDiagonalCrossPoint.xCanvas;
+		const yDiff = buildingAreaDiagonalCrossPoint.yCanvas - lightAreaDiagonalCrossPoint.yCanvas;
+
+		console.log('xDiff', xDiff);
+		console.log('yDiff', yDiff);
+
+		const lampsMoved = lamps.map(lamp => {
+			return {
+				lightLeftTopPoint: {
+					xCanvas: lamp.lightLeftTopPoint.xCanvas + xDiff,
+					yCanvas: lamp.lightLeftTopPoint.yCanvas + yDiff
+				},
+				frameLeftTopPoint: {
+					xCanvas: lamp.frameLeftTopPoint.xCanvas + xDiff,
+					yCanvas: lamp.frameLeftTopPoint.yCanvas + yDiff
+				}
+			};
+		});
+
+		return lampsMoved;
+	}
+
+	drawLight(lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number, canvas: CanvasRenderingContext2D | undefined): void {
 		if (!canvas) {
 			return;
 		}
-		const meterToPixel = grid[0][0].sizeCanvas;
-		const { leftTop, rightBottom } = this.getAreaCorners(grid);
-		const lamps = this.calculateLampPoints(lampLightInfo, leftTop, rightBottom, meterToPixel);
-		console.log('lamps', lamps);
 		this.drawLamps(lamps, lampLightInfo, canvas, meterToPixel);
 	}
 
+
+	private getDiagonalCrossPoint(leftTopCorner: Point, rightBottomCorner: Point): Point {
+		return {
+			xCanvas: (leftTopCorner.xCanvas + rightBottomCorner.xCanvas) / 2,
+			yCanvas: (leftTopCorner.yCanvas + rightBottomCorner.yCanvas) / 2
+		};
+	}
 
 	private drawLamps(lamps: Lamp[], lampInfo: LampLightInfo, ctx: CanvasRenderingContext2D, meterToPixel: number): void {
 
@@ -79,19 +121,36 @@ export class LightService {
 		return lamps;
 	}
 
-	private getAreaCorners(grid: SquareInfo[][]): { leftTop: Point, rightBottom: Point } {
-		const areaGrid = grid.reduce((acc, row) => {
-			return acc.concat(row.filter(cell => cell.selected));
-		}, []);
+
+	private getLampCorners(lamps: Lamp[], lampInfo: LampLightInfo, meterToPx: number): { lightAreaLeftTop: Point, lightAreaRightBottom: Point } {
+		const areaGrid = lamps.map(lamp => lamp.lightLeftTopPoint);
+		const leftTop = this.findLeftTopCorner(areaGrid);
+		const rightBottom = this.findRightBottomCorner(areaGrid);
+		rightBottom.xCanvas += (lampInfo.lampPosition === 'vertical' ? lampInfo.lampLightWidthInM : lampInfo.lampLightHeightInM) * meterToPx;
+		rightBottom.yCanvas += (lampInfo.lampPosition === 'vertical' ? lampInfo.lampLightHeightInM : lampInfo.lampLightWidthInM) * meterToPx;
+		console.log('lightAreaLeftTop', leftTop);
+		console.log('lightAreaRightBottom', rightBottom);
+		return { lightAreaLeftTop: leftTop, lightAreaRightBottom: rightBottom };
+	}
+
+	private getAreaCorners(grid: SquareInfo[][]): { buildingAreaLeftTop: Point, buildingAreaRightBottom: Point } {
+		const squareSize = grid[0][0].sizeCanvas;
+		const areaGrid: Point[] = grid.reduce((acc, row) => {
+			return acc.concat(row
+				.filter(cell => cell.selected)
+				.map(cell => ({ xCanvas: cell.xCanvas, yCanvas: cell.yCanvas, sizeCanvas: cell.sizeCanvas }))
+			);
+		}, [] as Point[]);
 		console.log('areaGrid', areaGrid);
 		const leftTop = this.findLeftTopCorner(areaGrid);
 		const rightBottom = this.findRightBottomCorner(areaGrid);
-
-		return { leftTop, rightBottom };
+		rightBottom.xCanvas += squareSize;
+		rightBottom.yCanvas += squareSize;
+		return { buildingAreaLeftTop: leftTop, buildingAreaRightBottom: rightBottom };
 	}
 
 
-	private findLeftTopCorner(areaGrid: SquareInfo[]): Point {
+	private findLeftTopCorner(areaGrid: Point[]): Point {
 		let leftTop: Point = { xCanvas: Infinity, yCanvas: Infinity };
 		for (let square of areaGrid) {
 			if (square.xCanvas < leftTop.xCanvas || (square.xCanvas === leftTop.xCanvas && square.yCanvas < leftTop.yCanvas)) {
@@ -102,15 +161,14 @@ export class LightService {
 	}
 
 
-	private findRightBottomCorner(areaGrid: SquareInfo[]): Point {
-		const squareSize = areaGrid[0].sizeCanvas;
+	private findRightBottomCorner(areaGrid: Point[]): Point {
 		let rightBottom: Point = { xCanvas: -Infinity, yCanvas: -Infinity };
 		for (let square of areaGrid) {
 			if (square.xCanvas > rightBottom.xCanvas || (square.xCanvas === rightBottom.xCanvas && square.yCanvas > rightBottom.yCanvas)) {
 				rightBottom = { xCanvas: square.xCanvas, yCanvas: square.yCanvas };
 			}
 		}
-		return { xCanvas: rightBottom.xCanvas + squareSize, yCanvas: rightBottom.yCanvas + squareSize };
+		return { xCanvas: rightBottom.xCanvas, yCanvas: rightBottom.yCanvas };
 	}
 
 }
