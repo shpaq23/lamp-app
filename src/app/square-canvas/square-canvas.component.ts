@@ -15,6 +15,7 @@ export interface LampLightInfo {
 	lampHeightInM: number;
 	lampLightHeightInM: number;
 	lampLightWidthInM: number;
+	percentageOfLightThreshold: number;
 	lampPosition: 'horizontal' | 'vertical';
 }
 
@@ -26,6 +27,7 @@ export interface Point {
 export interface Lamp {
 	lightLeftTopPoint: Point;
 	frameLeftTopPoint: Point;
+	lightingAreaPercentage?: number;
 }
 
 
@@ -35,6 +37,7 @@ export interface Lamp {
 		<button (click)="calculate()">Calculate</button>
 		<button (click)="step1()">Step 1</button>
 		<button (click)="step2()">Step 2</button>
+		<button (click)="step3()">Step 3</button>
 		<div>
 			Initial Area Width: <input (change)="updateInitialArea()" [(ngModel)]="initialWidth" type="number">
 			Initial Area Height: <input (change)="updateInitialArea()" [(ngModel)]="initialHeight" type="number">
@@ -42,6 +45,7 @@ export interface Lamp {
 			Lamp Frame Height in M: <input [(ngModel)]="lampHeightInM" type="number">
 			Lamp Light Width in M: <input [(ngModel)]="lampLightWidthInM" type="number">
 			Lamp Light Height in M: <input [(ngModel)]="lampLightHeightInM" type="number">
+			Lamp percentage of light threshold : <input [(ngModel)]="lampPercentageOfLightThreshold" type="number">
 			Lamp Position:
 			<select [(ngModel)]="lampPosition">
 				<option value="horizontal">Horizontal</option>
@@ -93,6 +97,8 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 	lampLightHeightInM: number = 1.5; // Default lamp light height
 
+	lampPercentageOfLightThreshold: number = 75; // Default percentage of light threshold
+
 	lampPosition: 'horizontal' | 'vertical' = 'vertical'; // Default lamp position
 
 	withMovingLampAlgorithm: boolean = false;
@@ -115,7 +121,8 @@ export class SquareCanvasComponent implements AfterViewInit {
 			lampHeightInM: this.lampHeightInM,
 			lampLightHeightInM: this.lampLightHeightInM,
 			lampLightWidthInM: this.lampLightWidthInM,
-			lampPosition: this.lampPosition
+			lampPosition: this.lampPosition,
+			percentageOfLightThreshold: this.lampPercentageOfLightThreshold
 		};
 		this.drawGrid();
 		// const lampPoints = this.calculateLampPosition(this.grid, lampInfo);
@@ -130,7 +137,8 @@ export class SquareCanvasComponent implements AfterViewInit {
 			lampHeightInM: this.lampHeightInM,
 			lampLightHeightInM: this.lampLightHeightInM,
 			lampLightWidthInM: this.lampLightWidthInM,
-			lampPosition: this.lampPosition
+			lampPosition: this.lampPosition,
+			percentageOfLightThreshold: this.lampPercentageOfLightThreshold
 		};
 		this.drawGrid();
 		const lamps = this.lightService.step1(this.grid, lampInfo);
@@ -143,10 +151,25 @@ export class SquareCanvasComponent implements AfterViewInit {
 			lampHeightInM: this.lampHeightInM,
 			lampLightHeightInM: this.lampLightHeightInM,
 			lampLightWidthInM: this.lampLightWidthInM,
-			lampPosition: this.lampPosition
+			lampPosition: this.lampPosition,
+			percentageOfLightThreshold: this.lampPercentageOfLightThreshold
 		};
 		this.drawGrid();
 		const lamps = this.lightService.step2(this.grid, lampInfo);
+		this.lightService.drawLight(lamps, lampInfo, 20, this.myCanvas.nativeElement.getContext('2d'));
+	}
+
+	step3(): void {
+		const lampInfo = {
+			lampWidthInM: this.lampWidthInM,
+			lampHeightInM: this.lampHeightInM,
+			lampLightHeightInM: this.lampLightHeightInM,
+			lampLightWidthInM: this.lampLightWidthInM,
+			lampPosition: this.lampPosition,
+			percentageOfLightThreshold: this.lampPercentageOfLightThreshold
+		};
+		this.drawGrid();
+		const lamps = this.lightService.step3(this.grid, lampInfo);
 		this.lightService.drawLight(lamps, lampInfo, 20, this.myCanvas.nativeElement.getContext('2d'));
 	}
 
