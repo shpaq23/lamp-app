@@ -225,24 +225,36 @@ export class LightService {
 
 
 	private findLeftTopCorner(areaGrid: Point[]): Point {
-		let leftTop: Point = { xCanvas: Infinity, yCanvas: Infinity };
+		let minX = Infinity;
+		let minY = Infinity;
+
 		for (let square of areaGrid) {
-			if (square.xCanvas < leftTop.xCanvas || (square.xCanvas === leftTop.xCanvas && square.yCanvas < leftTop.yCanvas)) {
-				leftTop = { xCanvas: square.xCanvas, yCanvas: square.yCanvas };
+			if (square.xCanvas < minX) {
+				minX = square.xCanvas;
+			}
+			if (square.yCanvas < minY) {
+				minY = square.yCanvas;
 			}
 		}
-		return leftTop;
+
+		return { xCanvas: minX, yCanvas: minY };
 	}
 
 
 	private findRightBottomCorner(areaGrid: Point[]): Point {
-		let rightBottom: Point = { xCanvas: -Infinity, yCanvas: -Infinity };
+		let maxX = -Infinity;
+		let maxY = -Infinity;
+
 		for (let square of areaGrid) {
-			if (square.xCanvas > rightBottom.xCanvas || (square.xCanvas === rightBottom.xCanvas && square.yCanvas > rightBottom.yCanvas)) {
-				rightBottom = { xCanvas: square.xCanvas, yCanvas: square.yCanvas };
+			if (square.xCanvas > maxX) {
+				maxX = square.xCanvas;
+			}
+			if (square.yCanvas > maxY) {
+				maxY = square.yCanvas;
 			}
 		}
-		return { xCanvas: rightBottom.xCanvas, yCanvas: rightBottom.yCanvas };
+
+		return { xCanvas: maxX, yCanvas: maxY };
 	}
 
 }
