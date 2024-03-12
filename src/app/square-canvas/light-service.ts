@@ -18,19 +18,14 @@ export class LightService {
 		const meterToPixel = grid[0][0].sizeCanvas;
 		const { buildingAreaLeftTop, buildingAreaRightBottom } = this.getAreaCorners(grid);
 		const buildingAreaDiagonalCrossPoint = this.getDiagonalCrossPoint(buildingAreaLeftTop, buildingAreaRightBottom);
-		console.log('areaDiagonalCrossPoint', buildingAreaDiagonalCrossPoint);
 
 		const { lightAreaLeftTop, lightAreaRightBottom } = this.getLampCorners(lamps, lampLightInfo, meterToPixel);
 		const lightAreaDiagonalCrossPoint = this.getDiagonalCrossPoint(lightAreaLeftTop, lightAreaRightBottom);
-		console.log('lightAreaDiagonalCrossPoint', lightAreaDiagonalCrossPoint);
 
 		const xDiff = buildingAreaDiagonalCrossPoint.xCanvas - lightAreaDiagonalCrossPoint.xCanvas;
 		const yDiff = buildingAreaDiagonalCrossPoint.yCanvas - lightAreaDiagonalCrossPoint.yCanvas;
 
-		console.log('xDiff', xDiff);
-		console.log('yDiff', yDiff);
-
-		const lampsMoved = lamps.map(lamp => {
+		return lamps.map(lamp => {
 			return {
 				lightLeftTopPoint: {
 					xCanvas: lamp.lightLeftTopPoint.xCanvas + xDiff,
@@ -42,8 +37,6 @@ export class LightService {
 				}
 			};
 		});
-
-		return lampsMoved;
 	}
 
 	step3(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Lamp[] {
@@ -52,9 +45,7 @@ export class LightService {
 		const buildingAreaPoints = this.getBuildingAreaPoints(grid);
 
 		const lampsWithLightningArea = this.calculateLampLightingAreaPercentage(buildingAreaPoints, lamps, lampLightInfo, meterToPixel);
-		console.log('lampsWithLightningArea', lampsWithLightningArea);
-		const filteredLamps = lampsWithLightningArea.filter(lamp => (lamp.lightingAreaPercentage * 100) >= lampLightInfo.percentageOfLightThreshold);
-		return filteredLamps;
+		return lampsWithLightningArea.filter(lamp => (lamp.lightingAreaPercentage * 100) >= lampLightInfo.percentageOfLightThreshold);
 	}
 
 	step4(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Lamp[] {
@@ -62,10 +53,7 @@ export class LightService {
 		const meterToPixel = grid[0][0].sizeCanvas;
 		const buildingAreaPoints = this.getBuildingAreaPoints(grid);
 
-		const movedLamps = this.moveOffsetLamps(buildingAreaPoints, lamps, lampLightInfo, meterToPixel);
-		console.log('movedLamps', movedLamps);
-
-		return movedLamps;
+		return this.moveOffsetLamps(buildingAreaPoints, lamps, lampLightInfo, meterToPixel);
 	}
 
 	drawLight(lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number, canvas: CanvasRenderingContext2D | undefined): void {
@@ -145,21 +133,16 @@ export class LightService {
 	}
 
 	private calculateLampLightingAreaPercentage(buildingAreaPoints: Point[], lamps: Lamp[], lampInfo: LampLightInfo, meterToPx: number): Lamp[] {
-		// Assuming getGenericLampAreaPoints returns a list of points relative to (0,0) for the lamp's lighting area
 		const genericLampAreaPoints = this.getGenericLampAreaPoints(lampInfo, meterToPx);
-		console.log('genericLampAreaPoints', genericLampAreaPoints);
 
-		// Convert buildingAreaPoints into a more efficient structure for point existence checking
 		const buildingAreaSet = new Set(buildingAreaPoints.map(p => `${p.xCanvas},${p.yCanvas}`));
 
 		return lamps.map(lamp => {
-			// Translate generic lamp area points to lamp's position
 			const translatedLampAreaPoints = genericLampAreaPoints.map(p => ({
 				xCanvas: p.xCanvas + lamp.lightLeftTopPoint.xCanvas,
 				yCanvas: p.yCanvas + lamp.lightLeftTopPoint.yCanvas
 			}));
 
-			// Count how many of these points are in the building area
 			const lampLightingAreaPointsCount = translatedLampAreaPoints.filter(p => buildingAreaSet.has(`${p.xCanvas},${p.yCanvas}`)).length;
 
 			const percentage = lampLightingAreaPointsCount / translatedLampAreaPoints.length;
@@ -225,7 +208,7 @@ export class LightService {
 		ctx.lineWidth = 1;
 
 		lamps.forEach(lamp => {
-			ctx.fillStyle = lamp.hasLampMoved ? movedLightAreaColor: lightAreaColor;
+			ctx.fillStyle = lamp.hasLampMoved ? movedLightAreaColor : lightAreaColor;
 			const lightWidthPx = (lampInfo.lampPosition === 'horizontal' ? lampInfo.lampLightHeightInM : lampInfo.lampLightWidthInM) * meterToPixel;
 			const lightHeightPx = (lampInfo.lampPosition === 'horizontal' ? lampInfo.lampLightWidthInM : lampInfo.lampLightHeightInM) * meterToPixel;
 			ctx.beginPath();
@@ -285,8 +268,6 @@ export class LightService {
 		const rightBottom = this.findRightBottomCorner(areaGrid);
 		rightBottom.xCanvas += (lampInfo.lampPosition === 'vertical' ? lampInfo.lampLightWidthInM : lampInfo.lampLightHeightInM) * meterToPx;
 		rightBottom.yCanvas += (lampInfo.lampPosition === 'vertical' ? lampInfo.lampLightHeightInM : lampInfo.lampLightWidthInM) * meterToPx;
-		console.log('lightAreaLeftTop', leftTop);
-		console.log('lightAreaRightBottom', rightBottom);
 		return { lightAreaLeftTop: leftTop, lightAreaRightBottom: rightBottom };
 	}
 
@@ -298,7 +279,6 @@ export class LightService {
 				.map(cell => ({ xCanvas: cell.xCanvas, yCanvas: cell.yCanvas }))
 			);
 		}, [] as Point[]);
-		console.log('areaGrid', areaGrid);
 		const leftTop = this.findLeftTopCorner(areaGrid);
 		const rightBottom = this.findRightBottomCorner(areaGrid);
 		rightBottom.xCanvas += squareSize;
