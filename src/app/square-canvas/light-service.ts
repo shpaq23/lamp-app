@@ -57,6 +57,17 @@ export class LightService {
 		return filteredLamps;
 	}
 
+	step4(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Lamp[] {
+		const lamps = this.step3(grid, lampLightInfo);
+		const meterToPixel = grid[0][0].sizeCanvas;
+		const buildingAreaPoints = this.getBuildingAreaPoints(grid);
+
+		const movedLamps = this.moveOffsetLamps(buildingAreaPoints, lamps, lampLightInfo, meterToPixel);
+		console.log('movedLamps', movedLamps);
+
+		return movedLamps;
+	}
+
 	drawLight(lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number, canvas: CanvasRenderingContext2D | undefined): void {
 		if (!canvas) {
 			return;
@@ -64,9 +75,79 @@ export class LightService {
 		this.drawLamps(lamps, lampLightInfo, canvas, meterToPixel);
 	}
 
+	private moveOffsetLamps(buildingAreaPoints: Point[], lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number): Lamp[] {
+		return lamps
+			.map(lamp => {
+				if (lamp.lightingAreaPercentage === 1) {
+					return { ...lamp };
+				}
+				const lampFrameOffsetPoints = this.calculateLampFrameOffsetPoints(buildingAreaPoints, lamp, lampLightInfo, meterToPixel);
+				if (lampLightInfo.lampPosition === 'vertical') {
+					const lampFrameOffsetYUniques = Array.from(new Set(lampFrameOffsetPoints.map(p => p.yCanvas)));
+					const isTopOffset = lampFrameOffsetYUniques[0] <= lamp.frameLeftTopPoint.yCanvas;
+					const isBotOffset = lampFrameOffsetYUniques[0] > lamp.frameLeftTopPoint.yCanvas;
+					const offset = lampFrameOffsetYUniques.length;
+
+					if (isTopOffset) {
+						lamp.frameLeftTopPoint.yCanvas += offset;
+						lamp.lightLeftTopPoint.yCanvas += offset;
+						lamp.hasLampMoved = true;
+					}
+
+					if (isBotOffset) {
+						lamp.frameLeftTopPoint.yCanvas -= offset;
+						lamp.lightLeftTopPoint.yCanvas -= offset;
+						lamp.hasLampMoved = true;
+					}
+					return { ...lamp, lightingAreaPercentage: undefined };
+				}
+				if (lampLightInfo.lampPosition === 'horizontal') {
+					const lampFrameOffsetXUniques = Array.from(new Set(lampFrameOffsetPoints.map(p => p.xCanvas)));
+					const isLeftOffset = lampFrameOffsetXUniques[0] <= lamp.frameLeftTopPoint.xCanvas;
+					const isRightOffset = lampFrameOffsetXUniques[0] > lamp.frameLeftTopPoint.xCanvas;
+					const offset = lampFrameOffsetXUniques.length;
+
+					if (isLeftOffset) {
+						lamp.frameLeftTopPoint.xCanvas += offset;
+						lamp.lightLeftTopPoint.xCanvas += offset;
+						lamp.hasLampMoved = true;
+					}
+
+					if (isRightOffset) {
+						lamp.frameLeftTopPoint.xCanvas -= offset;
+						lamp.lightLeftTopPoint.xCanvas -= offset;
+						lamp.hasLampMoved = true;
+					}
+					return { ...lamp, lightingAreaPercentage: undefined };
+				}
+				return { ...lamp };
+			});
+
+
+	}
+
+
+	private calculateLampFrameOffsetPoints(buildingAreaPoints: Point[], lamp: Lamp, lampLightInfo: LampLightInfo, meterToPx: number): Point[] {
+		const buildingAreaSet = new Set(buildingAreaPoints.map(p => `${p.xCanvas},${p.yCanvas}`));
+		const frameWidth = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampWidthInM : lampLightInfo.lampHeightInM) * meterToPx;
+		const frameHeight = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampHeightInM : lampLightInfo.lampWidthInM) * meterToPx;
+		const lampFrameOffsetPoints: Point[] = [];
+		for (let x = 0; x <= frameWidth; x++) {
+			for (let y = 0; y <= frameHeight; y++) {
+				const point = { xCanvas: lamp.frameLeftTopPoint.xCanvas + x, yCanvas: lamp.frameLeftTopPoint.yCanvas + y };
+				if (!buildingAreaSet.has(`${point.xCanvas},${point.yCanvas}`)) {
+					lampFrameOffsetPoints.push(point);
+				}
+			}
+		}
+
+		return lampFrameOffsetPoints;
+	}
+
 	private calculateLampLightingAreaPercentage(buildingAreaPoints: Point[], lamps: Lamp[], lampInfo: LampLightInfo, meterToPx: number): Lamp[] {
 		// Assuming getGenericLampAreaPoints returns a list of points relative to (0,0) for the lamp's lighting area
 		const genericLampAreaPoints = this.getGenericLampAreaPoints(lampInfo, meterToPx);
+		console.log('genericLampAreaPoints', genericLampAreaPoints);
 
 		// Convert buildingAreaPoints into a more efficient structure for point existence checking
 		const buildingAreaSet = new Set(buildingAreaPoints.map(p => `${p.xCanvas},${p.yCanvas}`));
@@ -139,11 +220,12 @@ export class LightService {
 	private drawLamps(lamps: Lamp[], lampInfo: LampLightInfo, ctx: CanvasRenderingContext2D, meterToPixel: number): void {
 
 		const lightAreaColor = 'rgba(255, 255, 0, 0.5)';
+		const movedLightAreaColor = 'rgba(0, 255, 0, 0.5)';
 		ctx.strokeStyle = 'orange';
 		ctx.lineWidth = 1;
 
 		lamps.forEach(lamp => {
-			ctx.fillStyle = lightAreaColor;
+			ctx.fillStyle = lamp.hasLampMoved ? movedLightAreaColor: lightAreaColor;
 			const lightWidthPx = (lampInfo.lampPosition === 'horizontal' ? lampInfo.lampLightHeightInM : lampInfo.lampLightWidthInM) * meterToPixel;
 			const lightHeightPx = (lampInfo.lampPosition === 'horizontal' ? lampInfo.lampLightWidthInM : lampInfo.lampLightHeightInM) * meterToPixel;
 			ctx.beginPath();

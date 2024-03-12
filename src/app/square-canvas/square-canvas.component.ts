@@ -28,6 +28,7 @@ export interface Lamp {
 	lightLeftTopPoint: Point;
 	frameLeftTopPoint: Point;
 	lightingAreaPercentage?: number;
+	hasLampMoved?: boolean;
 }
 
 
@@ -38,6 +39,7 @@ export interface Lamp {
 		<button (click)="step1()">Step 1</button>
 		<button (click)="step2()">Step 2</button>
 		<button (click)="step3()">Step 3</button>
+		<button (click)="step4()">Step 4</button>
 		<div>
 			Initial Area Width: <input (change)="updateInitialArea()" [(ngModel)]="initialWidth" type="number">
 			Initial Area Height: <input (change)="updateInitialArea()" [(ngModel)]="initialHeight" type="number">
@@ -97,7 +99,7 @@ export class SquareCanvasComponent implements AfterViewInit {
 
 	lampLightHeightInM: number = 1.5; // Default lamp light height
 
-	lampPercentageOfLightThreshold: number = 75; // Default percentage of light threshold
+	lampPercentageOfLightThreshold: number = 20; // Default percentage of light threshold
 
 	lampPosition: 'horizontal' | 'vertical' = 'vertical'; // Default lamp position
 
@@ -171,6 +173,21 @@ export class SquareCanvasComponent implements AfterViewInit {
 		this.drawGrid();
 		const lamps = this.lightService.step3(this.grid, lampInfo);
 		this.lightService.drawLight(lamps, lampInfo, 20, this.myCanvas.nativeElement.getContext('2d'));
+	}
+
+	step4(): void {
+		const lampInfo = {
+			lampWidthInM: this.lampWidthInM,
+			lampHeightInM: this.lampHeightInM,
+			lampLightHeightInM: this.lampLightHeightInM,
+			lampLightWidthInM: this.lampLightWidthInM,
+			lampPosition: this.lampPosition,
+			percentageOfLightThreshold: this.lampPercentageOfLightThreshold
+		};
+		this.drawGrid();
+		const lamps = this.lightService.step4(this.grid, lampInfo);
+		this.lightService.drawLight(lamps, lampInfo, 20, this.myCanvas.nativeElement.getContext('2d'));
+
 	}
 
 
