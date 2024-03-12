@@ -53,7 +53,8 @@ export class LightService {
 
 		const lampsWithLightningArea = this.calculateLampLightingAreaPercentage(buildingAreaPoints, lamps, lampLightInfo, meterToPixel);
 		console.log('lampsWithLightningArea', lampsWithLightningArea);
-		return lamps;
+		const filteredLamps = lampsWithLightningArea.filter(lamp => (lamp.lightingAreaPercentage * 100) >= lampLightInfo.percentageOfLightThreshold);
+		return filteredLamps;
 	}
 
 	drawLight(lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number, canvas: CanvasRenderingContext2D | undefined): void {
