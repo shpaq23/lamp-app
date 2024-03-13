@@ -51,9 +51,8 @@ export class LightService {
 	step4(grid: SquareInfo[][], lampLightInfo: LampLightInfo): Lamp[] {
 		const lamps = this.step3(grid, lampLightInfo);
 		const meterToPixel = grid[0][0].sizeCanvas;
-		const buildingAreaPoints = this.getBuildingAreaPoints(grid);
 
-		return this.moveOffsetLamps(buildingAreaPoints, lamps, lampLightInfo, meterToPixel);
+		return this.moveOffsetLamps(grid, lamps, lampLightInfo, meterToPixel);
 	}
 
 	drawLight(lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number, canvas: CanvasRenderingContext2D | undefined): void {
@@ -63,15 +62,14 @@ export class LightService {
 		this.drawLamps(lamps, lampLightInfo, canvas, meterToPixel);
 	}
 
-	private moveOffsetLamps(buildingAreaPoints: Point[], lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number): Lamp[] {
+	private moveOffsetLamps(grid: SquareInfo[][], lamps: Lamp[], lampLightInfo: LampLightInfo, meterToPixel: number): Lamp[] {
 		return lamps
 			.map(lamp => {
 				if (lamp.lightingAreaPercentage === 1) {
 					return { ...lamp };
 				}
-				const lampFrameOffsetPoints = this.calculateLampFrameOffsetPoints(buildingAreaPoints, lamp, lampLightInfo, meterToPixel);
 				if (lampLightInfo.lampPosition === 'vertical') {
-					const lampFrameOffsetYUniques = Array.from(new Set(lampFrameOffsetPoints.map(p => p.yCanvas)));
+					const lampFrameOffsetYUniques = this.calculateLampFrameOffsetUniqueXorY(grid, lamp, lampLightInfo, meterToPixel);
 					const isTopOffset = lampFrameOffsetYUniques[0] <= lamp.frameLeftTopPoint.yCanvas;
 					const isBotOffset = lampFrameOffsetYUniques[0] > lamp.frameLeftTopPoint.yCanvas;
 					const offset = lampFrameOffsetYUniques.length;
@@ -90,7 +88,7 @@ export class LightService {
 					return { ...lamp, lightingAreaPercentage: undefined };
 				}
 				if (lampLightInfo.lampPosition === 'horizontal') {
-					const lampFrameOffsetXUniques = Array.from(new Set(lampFrameOffsetPoints.map(p => p.xCanvas)));
+					const lampFrameOffsetXUniques = this.calculateLampFrameOffsetUniqueXorY(grid, lamp, lampLightInfo, meterToPixel);
 					const isLeftOffset = lampFrameOffsetXUniques[0] <= lamp.frameLeftTopPoint.xCanvas;
 					const isRightOffset = lampFrameOffsetXUniques[0] > lamp.frameLeftTopPoint.xCanvas;
 					const offset = lampFrameOffsetXUniques.length;
@@ -115,21 +113,54 @@ export class LightService {
 	}
 
 
-	private calculateLampFrameOffsetPoints(buildingAreaPoints: Point[], lamp: Lamp, lampLightInfo: LampLightInfo, meterToPx: number): Point[] {
+	private calculateLampFrameOffsetUniqueXorY(grid: SquareInfo[][], lamp: Lamp, lampLightInfo: LampLightInfo, meterToPx: number): number[] {
+		const areaSquares = grid.reduce((acc, row) => {
+			return acc.concat(row.filter(cell => cell.selected));
+		}, []);
+		const areaSquaresWithLampLighting = areaSquares.filter(square => this.isAreaSquareHasLampLighting(square, lamp, lampLightInfo, meterToPx));
+
+		const buildingAreaPoints = this.getBuildingAreaPointsFromPoints(areaSquaresWithLampLighting, meterToPx);
 		const buildingAreaSet = new Set(buildingAreaPoints.map(p => `${p.xCanvas},${p.yCanvas}`));
 		const frameWidth = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampWidthInM : lampLightInfo.lampHeightInM) * meterToPx;
 		const frameHeight = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampHeightInM : lampLightInfo.lampWidthInM) * meterToPx;
-		const lampFrameOffsetPoints: Point[] = [];
-		for (let x = 0; x <= frameWidth; x++) {
+		if (lampLightInfo.lampPosition === 'vertical') {
+			const uniqueYs = new Set<number>();
 			for (let y = 0; y <= frameHeight; y++) {
-				const point = { xCanvas: lamp.frameLeftTopPoint.xCanvas + x, yCanvas: lamp.frameLeftTopPoint.yCanvas + y };
+				const point = { xCanvas: lamp.frameLeftTopPoint.xCanvas, yCanvas: lamp.frameLeftTopPoint.yCanvas + y };
 				if (!buildingAreaSet.has(`${point.xCanvas},${point.yCanvas}`)) {
-					lampFrameOffsetPoints.push(point);
+					uniqueYs.add(point.yCanvas);
 				}
 			}
+			return Array.from(uniqueYs);
 		}
+		if (lampLightInfo.lampPosition === 'horizontal') {
+			const uniqueXs = new Set<number>();
+			for (let x = 0; x <= frameWidth; x++) {
+				const point = { xCanvas: lamp.frameLeftTopPoint.xCanvas + x, yCanvas: lamp.frameLeftTopPoint.yCanvas };
+				if (!buildingAreaSet.has(`${point.xCanvas},${point.yCanvas}`)) {
+					uniqueXs.add(point.xCanvas);
+				}
+			}
+			return Array.from(uniqueXs);
+		}
+		return [];
+	}
 
-		return lampFrameOffsetPoints;
+	private isAreaSquareHasLampLighting(areaSquare: SquareInfo, lamp: Lamp, lampLightInfo: LampLightInfo, meterToPx: number): boolean {
+		const squareTopLeft = { xCanvas: areaSquare.xCanvas, yCanvas: areaSquare.yCanvas };
+		const lampWidth = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampLightWidthInM : lampLightInfo.lampLightHeightInM) * meterToPx;
+		const lampHeight = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampLightHeightInM : lampLightInfo.lampLightWidthInM) * meterToPx;
+		const lampLightTopLeft = lamp.lightLeftTopPoint;
+
+		const lampLightBottomRight = {
+			xCanvas: lampLightTopLeft.xCanvas + lampWidth,
+			yCanvas: lampLightTopLeft.yCanvas + lampHeight
+		};
+
+		const isInHorizontalBounds = squareTopLeft.xCanvas >= lampLightTopLeft.xCanvas && squareTopLeft.xCanvas <= lampLightBottomRight.xCanvas;
+		const isInVerticalBounds = squareTopLeft.yCanvas >= lampLightTopLeft.yCanvas && squareTopLeft.yCanvas <= lampLightBottomRight.yCanvas;
+
+		return isInHorizontalBounds && isInVerticalBounds;
 	}
 
 	private calculateLampLightingAreaPercentage(buildingAreaPoints: Point[], lamps: Lamp[], lampInfo: LampLightInfo, meterToPx: number): Lamp[] {
@@ -152,18 +183,13 @@ export class LightService {
 	}
 
 	private getGenericLampAreaPoints(lampInfo: LampLightInfo, meterToPx: number): Point[] {
-		// Determine the width and height of the light area in pixels
 		const lightAreaWidth = (lampInfo.lampPosition === 'vertical' ? lampInfo.lampLightWidthInM : lampInfo.lampLightHeightInM) * meterToPx;
 		const lightAreaHeight = (lampInfo.lampPosition === 'vertical' ? lampInfo.lampLightHeightInM : lampInfo.lampLightWidthInM) * meterToPx;
 
 		const points: Point[] = [];
 
-		// Generate points for the light area, relative to a generic origin (0,0)
 		for (let x = 0; x <= lightAreaWidth; x++) {
 			for (let y = 0; y <= lightAreaHeight; y++) {
-				// Here, instead of adding points based on the lamp's actual position,
-				// we generate them as if the lamp is positioned at the origin (0,0).
-				// These points will later be translated to each lamp's actual position.
 				points.push({ xCanvas: x, yCanvas: y });
 			}
 		}
@@ -178,18 +204,21 @@ export class LightService {
 				.map(cell => ({ xCanvas: cell.xCanvas, yCanvas: cell.yCanvas }))
 			);
 		}, [] as Point[]);
-		const points: Point[] = [];
-
 		const cellSize = grid[0][0].sizeCanvas;
 
-		areaGrid.forEach((point, index) => {
-			for (let x = 0; x <= cellSize; x++) {
-				for (let y = 0; y <= cellSize; y++) {
-					points.push({ xCanvas: point.xCanvas + x, yCanvas: point.yCanvas + y });
+		return this.getBuildingAreaPointsFromPoints(areaGrid, cellSize);
+	}
+
+	private getBuildingAreaPointsFromPoints(points: Point[], meterToPx: number): Point[] {
+		const buildingAreaPoints: Point[] = [];
+		points.forEach(point => {
+			for (let x = 0; x <= meterToPx; x++) {
+				for (let y = 0; y <= meterToPx; y++) {
+					buildingAreaPoints.push({ xCanvas: point.xCanvas + x, yCanvas: point.yCanvas + y });
 				}
 			}
 		});
-		return points;
+		return buildingAreaPoints;
 	}
 
 
