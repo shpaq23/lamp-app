@@ -147,20 +147,32 @@ export class LightService {
 	}
 
 	private isAreaSquareHasLampLighting(areaSquare: SquareInfo, lamp: Lamp, lampLightInfo: LampLightInfo, meterToPx: number): boolean {
+		// Define square vertices
 		const squareTopLeft = { xCanvas: areaSquare.xCanvas, yCanvas: areaSquare.yCanvas };
+		const squareTopRight = { xCanvas: areaSquare.xCanvas + areaSquare.sizeCanvas, yCanvas: areaSquare.yCanvas };
+		const squareBottomLeft = { xCanvas: areaSquare.xCanvas, yCanvas: areaSquare.yCanvas + areaSquare.sizeCanvas };
+		const squareBottomRight = { xCanvas: areaSquare.xCanvas + areaSquare.sizeCanvas, yCanvas: areaSquare.yCanvas + areaSquare.sizeCanvas };
+
+		// Calculate lamp light dimensions based on orientation
 		const lampWidth = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampLightWidthInM : lampLightInfo.lampLightHeightInM) * meterToPx;
 		const lampHeight = (lampLightInfo.lampPosition === 'vertical' ? lampLightInfo.lampLightHeightInM : lampLightInfo.lampLightWidthInM) * meterToPx;
 		const lampLightTopLeft = lamp.lightLeftTopPoint;
-
 		const lampLightBottomRight = {
 			xCanvas: lampLightTopLeft.xCanvas + lampWidth,
 			yCanvas: lampLightTopLeft.yCanvas + lampHeight
 		};
 
-		const isInHorizontalBounds = squareTopLeft.xCanvas >= lampLightTopLeft.xCanvas && squareTopLeft.xCanvas <= lampLightBottomRight.xCanvas;
-		const isInVerticalBounds = squareTopLeft.yCanvas >= lampLightTopLeft.yCanvas && squareTopLeft.yCanvas <= lampLightBottomRight.yCanvas;
+		// Check if any of the square's vertices is within the lamp's light bounds
+		const vertices = [squareTopLeft, squareTopRight, squareBottomLeft, squareBottomRight];
+		for (const vertex of vertices) {
+			const isInHorizontalBounds = vertex.xCanvas >= lampLightTopLeft.xCanvas && vertex.xCanvas <= lampLightBottomRight.xCanvas;
+			const isInVerticalBounds = vertex.yCanvas >= lampLightTopLeft.yCanvas && vertex.yCanvas <= lampLightBottomRight.yCanvas;
+			if (isInHorizontalBounds && isInVerticalBounds) {
+				return true; // At least one ve
+			}
+		}
 
-		return isInHorizontalBounds && isInVerticalBounds;
+		return false; // No vertices are within the lamp's light
 	}
 
 	private calculateLampLightingAreaPercentage(buildingAreaPoints: Point[], lamps: Lamp[], lampInfo: LampLightInfo, meterToPx: number): Lamp[] {
