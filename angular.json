@@ -44,7 +44,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/monday-test-app",
+            "outputPath": "dist/lamp-app",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": [
@@ -105,6 +105,9 @@
           "options": {
             "browserTarget": "monday-test-app:build"
           }
+        },
+        "deploy": {
+          "builder": "angular-cli-ghpages:deploy"
         }
       }
     }
